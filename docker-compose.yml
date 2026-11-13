@@ -1,0 +1,50 @@
+# Aldi AI-Ops mini projektek – közös környezet
+# 1. projekt: n8n + Postgres (n8n saját DB-je + "support" ticket DB)
+# A későbbi projektek (Langfuse, LiteLLM proxy) ide kerülnek majd új service-ként.
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-n8n}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-n8n_pass}
+      POSTGRES_DB: n8n
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-n8n}"]
+      interval: 5s
+      retries: 10
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5678:5678"
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-n8n}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-n8n_pass}
+      GENERIC_TIMEZONE: Europe/Budapest
+      TZ: Europe/Budapest
+      N8N_SECURE_COOKIE: "false"          # csak lokális fejlesztéshez
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false" # a workflow $env-ből olvassa az LLM beállításokat
+      # LLM beállítások – bármely OpenAI-kompatibilis /chat/completions endpoint
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+volumes:
+  pg_data:
+  n8n_data:

@@ -1,0 +1,6 @@
+{
+  "message_id": "test-004",
+  "from": "m.mueller@example.de",
+  "subject": "Login in der App funktioniert nicht",
+  "text": "Hallo, seit dem letzten Update kann ich mich in der App nicht mehr anmelden. Ich bekomme immer 'Unbekannter Fehler'. Passwort zurücksetzen habe ich schon versucht. Viele Grüße, Markus Müller"
+}
