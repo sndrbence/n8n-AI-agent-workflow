@@ -1,18 +1,13 @@
-# Aldi AI-Ops mini projektek
+# n8n AI agent workflow – support e-mail → LLM osztályozás → ticket
 
-| # | Projekt | Állapot |
-|---|---------|---------|
-| 1 | n8n AI agent workflow (support e-mail → LLM osztályozás → ticket) | ✅ kész |
-| 2 | Langfuse-integráció (trace-ek, költség, latencia) | ⏳ |
-| 3 | Hibaág és alerting (Slack/e-mail LLM-hiba vagy guardrail esetén) | ⏳ |
-| 4 | Runbook: LLM provider 429 / timeout | ⏳ |
-| 5 | Postmortem egy szimulált incidensről | ⏳ |
+Egy n8n workflow, ami a beérkező ügyfélszolgálati e-maileket LLM-mel osztályozza (kategória, prioritás,
+hangulat, nyelv, összefoglaló), guardrailekkel ellenőrzi az eredményt, és ticketet hoz létre Postgresben
+a megfelelő csapat sorába.
 
----
+> Egy ötrészes AI-Ops mini projektsorozat első darabja. A további részek (Langfuse-megfigyelhetőség,
+> hibaág és alerting, 429/timeout runbook, postmortem) külön repókban, erre a workflow-ra épülnek.
 
-## 1. projekt – Support e-mail → LLM osztályozás → ticket
-
-### Architektúra
+## Architektúra
 
 ```
 Webhook (teszt)  ─┐
@@ -22,17 +17,17 @@ IMAP (éles, opc.) ┴─► Normalize email ─► LLM: classify ─► Parse &
 ```
 
 **Miért így?**
-- **OpenAI-kompatibilis HTTP hívás** (nem a beépített AI node): a base URL env változóból jön, így a 2. projektben
-  egyetlen sorral átirányítható egy LiteLLM/Langfuse proxyra, a 4. projektben pedig a 429/timeout szimulálható.
+- **OpenAI-kompatibilis HTTP hívás** (nem a beépített AI node): a base URL env változóból jön, így később
+  egyetlen sorral átirányítható egy LiteLLM/Langfuse proxyra, és a 429/timeout hibák is szimulálhatók.
 - **Strict JSON schema** az LLM-től, de ezt **utólag is validáljuk**, mert nem minden provider tartja be.
 - **Guardrailek kódban, nem csak promptban**: regex alapú prompt-injection szűrés, alacsony confidence küszöb (0.6),
   egészségügyi kulcsszavaknál kötelező P1 (biztonsági felülírás).
 - Guardrail találat esetén a ticket **nem vész el**, hanem a `manual_triage` sorba kerül, és az ok a
-  `guardrail_reasons` mezőbe íródik → erre épül a 3. projekt alertingje.
+  `guardrail_reasons` mezőbe íródik → erre építhető alerting.
 - **Idempotencia**: `message_id` UNIQUE, ugyanaz a levél kétszer nem hoz létre két ticketet.
-- Minden tickethez mentjük: modell, latencia, prompt/completion tokenek → alap a 2. projekt költségméréséhez.
+- Minden tickethez mentjük: modell, latencia, prompt/completion tokenek → alap a költség- és latenciaméréshez.
 
-### Kategóriák → sorok
+## Kategóriák → sorok
 
 | Kategória | Sor (queue) |
 |---|---|
@@ -47,7 +42,7 @@ IMAP (éles, opc.) ┴─► Normalize email ─► LLM: classify ─► Parse &
 
 Prioritás: P1 biztonság/jogi · P2 pénzügyi kár, dühös ügyfél · P3 normál · P4 kérdés/dicséret.
 
-### Futtatás
+## Futtatás
 
 1. **Környezet**
    ```bash
@@ -76,7 +71,7 @@ Prioritás: P1 biztonság/jogi · P2 pénzügyi kár, dühös ügyfél · P3 nor
    docker compose exec postgres psql -U n8n -d support -c "select * from ticket_stats;"
    ```
 
-### Elvárt eredmények a teszt e-mailekre
+## Elvárt eredmények a teszt e-mailekre
 
 | Fájl | Kategória | Prioritás | Sor |
 |---|---|---|---|
@@ -87,7 +82,7 @@ Prioritás: P1 biztonság/jogi · P2 pénzügyi kár, dühös ügyfél · P3 nor
 | 05-dicseret | store_feedback | P4 | store_ops |
 | 06-injection | – | – | **manual_triage** (`regex_injection_pattern`, `llm_flagged_injection`) |
 
-### Hibaelhárítás
+## Hibaelhárítás
 
 - **`$env` access denied** → ellenőrizd, hogy `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` szerepel a compose fájlban.
 - **Postgres paraméter hiba** (régebbi n8n verziók nem fogadnak tömböt a Query Parameters mezőben) → frissítsd az n8n-t,
@@ -95,7 +90,7 @@ Prioritás: P1 biztonság/jogi · P2 pénzügyi kár, dühös ügyfél · P3 nor
 - **`response_format` nem támogatott** (nem-OpenAI provider) → töröld a `response_format` blokkot a *Normalize email*
   node-ból; a *Parse & guardrails* továbbra is validál, és hibás JSON esetén a `manual_triage` sorba tesz.
 
-### Fájlok
+## Fájlok
 
 ```
 docker-compose.yml          n8n + Postgres

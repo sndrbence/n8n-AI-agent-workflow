@@ -1,6 +1,5 @@
-# Aldi AI-Ops mini projektek – közös környezet
-# 1. projekt: n8n + Postgres (n8n saját DB-je + "support" ticket DB)
-# A későbbi projektek (Langfuse, LiteLLM proxy) ide kerülnek majd új service-ként.
+# n8n AI agent workflow – lokális környezet
+# n8n + Postgres (n8n saját DB-je + "support" ticket DB)
 
 services:
   postgres:

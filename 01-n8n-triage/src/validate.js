@@ -1,6 +1,6 @@
 // n8n Code node – "Parse & guardrails" (Run Once for Each Item)
 // Az LLM válaszát nem vakon bízzuk meg: parse-oljuk, sémát ellenőrzünk, és guardrail-eket futtatunk.
-// Ha bármelyik guardrail beavatkozik, a ticket "manual_triage" sorba kerül (3. projektben erre jön az alert).
+// Ha bármelyik guardrail beavatkozik, a ticket "manual_triage" sorba kerül.
 
 const src = $('Normalize email').item.json;
 const resp = $input.item.json;
